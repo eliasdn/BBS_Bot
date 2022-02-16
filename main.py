@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-from Cryptodome import Random
-from Cryptodome.Cipher import PKCS1_v1_5
-from Cryptodome.PublicKey import RSA
-from Cryptodome import Random
-from Cryptodome.Cipher import AES
-from Cryptodome.Hash import SHA256
+from Crypto import Random
+from Crypto.Cipher import PKCS1_v1_5
+from Crypto.PublicKey import RSA
+from Crypto import Random
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
 import base64
 import hashlib
 import binascii
@@ -12,7 +12,7 @@ import hmac
 import json
 import os
 import random
-from io import StringIO
+import StringIO
 import re
 import requests
 import sys
@@ -31,11 +31,12 @@ class API(object):
 		if 'win' in sys.platform:
 			self.s.proxies.update({'http': 'http://127.0.0.1:8888','https': 'https://127.0.0.1:8888',})
 		self.world='gl'
-		self.platform='GOOGLE'
-		self.bundle_version='11.1.1'
+		self.platform='STEAM'
+		self.os='WINDOWS'
+		self.bundle_version='13.6.2'
 		self.lang='en'
 		self.timezone='Europe/Berlin'
-		self.user_agent='/BleachBraveSouls/i:com.klab.bleach/u:11.1.2p2/d:htc Nexus 9/o:Android OS 7.1.1 _ API-25 (N9F27H_4108833)/e:s/'
+		self.user_agent='/BleachBraveSouls/i:com.klab.bleach.prod/u:2018.4.31f1/d:System Product Name (System manufacturer)/o:Windows 10  (10.0.0) 64bit/m:/e:s/'
 		self.auth_key='CUANAxRcDUNSURMXAggRFAgPXQEAX0ELVVoFBllCVkVdFwdWQQFSQwVeSEUGDxIXCAtSUQoKFQ9UWFNSVERUEw=='
 		self.publicKey='''-----BEGIN PUBLIC KEY-----
 						MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCv7iKhOdHvXkCOiq9Ckm98qK12
@@ -64,7 +65,7 @@ class API(object):
 		
 	def log(self,msg):
 		if self.debug:
-			print ('{}{}')%(time.strftime('%H:%M:%S'),msg.encode('utf-8'))
+			print '[%s]%s'%(time.strftime('%H:%M:%S'),msg.encode('utf-8'))
 
 	def getRandomString(self,n):
 		return ''.join([random.choice('0123456789abcdefghijklmnopqrstuvwxyz') for x in range(n)]).lower()
@@ -76,7 +77,7 @@ class API(object):
 		return base64.encodestring(cipher.encrypt(self.random_string)).replace('\n','')
 
 	def generateAuthRequestSignature(self,data):
-		if type(data)!=str:
+		if type(data)<>str:
 			data=urllib.urlencode(data)
 		if not self.x_authorization_key:
 			self.log('x_authorization_key missing')
@@ -88,7 +89,7 @@ class API(object):
 		return base64.b64encode(hmac.new(base64.b64decode(self.x_authorization_key),tmp.encode('utf-8'),hashlib.sha1).hexdigest())
 
 	def generateRequestSignature(self,url,requestBody,requestId):
-		if type(requestBody)!=str:
+		if type(requestBody)<>str:
 			requestBody=urllib.urlencode(requestBody)
 		tmp='%s-%s-%s'%(url,requestId,requestBody)
 		return base64.b64encode(hmac.new(base64.b64decode(self.x_session_key),tmp.encode('utf-8'),hashlib.sha1).hexdigest())
@@ -110,7 +111,7 @@ class API(object):
 	
 	#def updateHeader(self,data,url,isLink=False):
 	def updateHeader(self,data,url,kind):
-		_request_id=os.urandom(16).hex()
+		_request_id=os.urandom(16).encode('hex')
 		head={}
 		if self.didLogin:
 			if 'X-MASK-DATA' in self.s.headers:
@@ -150,9 +151,9 @@ class API(object):
 			self.device_id=r.headers['X-DEVICE-ID']
 			self.log('our device_id:%s'%(self.device_id))
 			self.generateCommonKey()
-		if b'master_data' in r.content:
+		if 'master_data' in r.content:
 			self.master_data_hash=json.loads(r.content)['master_data']['hash']
-		if b'custom_message' in r.content:
+		if 'custom_message' in r.content:
 			return None
 		return r.content
 		
@@ -183,16 +184,22 @@ class API(object):
 		return res
 		
 	def doRegister(self):
-		data={'platform':'GOOGLE','name':'name'}
+		data={'client_os':'WINDOWS','platform':'STEAM','name':'name'}
 		tmp= self.callAPI('player_authentication/register',data,1)
 		self.x_auth_count+=1
 		return tmp
-		
+	
+	def doUpdatePlayerFile(thing):
+		with open("player.json","w") as jsonfile:
+				json.dump(thing,jsonfile,ensure_ascii=False)
+
 	def doLogin(self):
-		data={'dummy':'dummy'}
+		data={'ad_id':''}
 		tmp= self.callAPI('player_authentication/login',data,2)
 		if tmp:
 			self.player=json.loads(tmp)['player']
+			with open("player.json","w") as jsonfile:
+				json.dump(json.loads(tmp)['player'],jsonfile,ensure_ascii=False)
 			self.log('hello %s'%(self.player['id']))
 			self.didLogin=True
 		return tmp
@@ -217,7 +224,7 @@ class API(object):
 		return self.callAPI('tutorial/quest_finish',data)
 		
 	def doGachaPlayTut(self):
-		data={'XXX':'XXX'}
+		data={'XXX':'XXX','pick_up_m_character_ids':'1001'}
 		return self.callAPI('tutorial/gacha_play',data)
 
 	def getTransfer_token(self,data,iv=None):
@@ -280,7 +287,12 @@ class API(object):
 			tmp_team['character_id_3']=t['characters'][0]['id'] if len(t['characters'])==3 else "null"
 			new_team.append(tmp_team)
 		self.teams=new_team
-		
+	
+	def getTeamid(self):
+		tmp = self.getMyPage()
+		#print "tmp = ", json.loads(tmp)
+		return json.loads(tmp)['mypage_team_id']
+	
 	def getShopIndex(self):
 		data={'XXX':'XXX'}
 		return self.callAPI('shop/index',data)
@@ -296,7 +308,7 @@ class API(object):
 	def getMyPage(self):
 		data={'XXX':'XXX'}
 		return self.callAPI('mypage/index',data)
-										
+
 	def getWebViewToken(self):
 		data={'XXX':'XXX'}
 		return self.callAPI('create_web_view_token',data)
@@ -318,12 +330,17 @@ class API(object):
 		data={'XXX':'XXX','present_ids':','.join(l)}
 		return self.callAPI('present/receive_bulk',data)
 
-	def doMainQuest(self,quest_id,team_id):
-		data={'XXX':'XXX','quest_id':quest_id,'team_id':team_id,'level':'0'}
+
+	def unlimitedGifts(self):
+		data={'XXX':'XXX','present_ids':'27452125992,27452111237'}
+		return self.callAPI('present/receive_bulk',data)
+
+	def doMainQuest(self,quest_id,team_id,ticket):
+		data={'XXX':'XXX','consume_ap':ticket,'quest_id':quest_id,'team_id':team_id,'level':'0','opened_scene_time':'637766864768832998'}
 		return self.callAPI('main_quest/play',data)
 		
 	def doFinishMainQuest(self,finish,client_character_ids):
-		data={'XXX':'XXX','result_json':json.dumps(finish),'client_character_ids':client_character_ids,'client_accessory_ids':''}
+		data={'XXX':'XXX','result_json':json.loads(finish),'client_character_ids':client_character_ids,'client_accessory_ids':''}
 		return self.callAPI('main_quest/finish',data)
 		
 	def parseSoulPieces(self,start):
@@ -343,9 +360,11 @@ class API(object):
 				_res[block][b]=1
 		return _res
 		
-	def completeQuest(self,quest_id,team_id,destroyed_enemies,destroyed_bosses):
-		_quest_data=self.doMainQuest(quest_id,self.teams[team_id]['id'])
+	def completeQuest(self,quest_id,team_id,ticket,destroyed_enemies,destroyed_bosses):
+		_quest_data=self.doMainQuest(quest_id,team_id,ticket)
+		#print _quest_data
 		_quest_finish_data=self.parseLevel(_quest_data,destroyed_enemies,destroyed_bosses)
+		print "quest_finish_data = ", _quest_finish_data
 		_team=json.loads(_quest_data)['characters']
 		client_character_ids=[]
 		for c in _team:
@@ -363,8 +382,11 @@ class API(object):
 	def parseLevel(self,i,destroyed_enemies,destroyed_bosses):
 		data={}
 		_boxes=self.parseBoxes(i)
+		print _boxes
 		_soul_pieces=self.parseSoulPieces(i)
+		print _soul_pieces
 		i=json.loads(i)
+		print i
 		data['play_log_id']=i['play_log_id']
 		data['clear']=1
 		data['play_log']= self.generateClearHash(i['play_log_id'])
@@ -409,7 +431,7 @@ class API(object):
 		self.setUsername('Rain')
 		self.log('setUsername done')
 		_level=self.doQuestPlayTut()
-		self.doQuestFinishTut({'XXX':'XXX','result_json':'{"play_log_id":"%s","clear":1,"play_log":"Default","destroyed_enemies":{"101":{"1":3}},"destroyed_bosses":[1001],"clear_time":32551,"dropped_boxes":{"block1":{"box1":1,"box2":1}},"enemy_dropped_ids":[],"dropped_soul_pieces":[],"change_sub_character":1,"auto_battle":0,"no_bad_status":1,"no_character_defeated":1,"no_following_friend_defeated":1,"received_damage":0,"last_attack_ex":0,"boss_attack_dodge":1,"use_ex_attack":0,"combo_max":11,"damage_max":34,"dropped_watermelon_ids":[],"is_resumed_game":0,"played_character_theater_last_ids":[1101,1201],"special_destroyed_enemies":{},"special_dropped_boxes":{},"special_dropped_soul_pieces":[],"special_enemy_dropped_ids":[]}'%(json.dumps(_level)['play_log_id'])})
+		self.doQuestFinishTut({'XXX':'XXX','result_json':'{"play_log_id":"%s","clear":1,"play_log":"Default","destroyed_enemies":{"101":{"1":3}},"destroyed_bosses":[1001],"clear_time":32551,"dropped_boxes":{"block1":{"box1":1,"box2":1}},"enemy_dropped_ids":[],"dropped_soul_pieces":[],"change_sub_character":1,"auto_battle":0,"no_bad_status":1,"no_character_defeated":1,"no_following_friend_defeated":1,"received_damage":0,"last_attack_ex":0,"boss_attack_dodge":1,"use_ex_attack":0,"combo_max":11,"damage_max":34,"dropped_watermelon_ids":[],"is_resumed_game":0,"played_character_theater_last_ids":[1101,1201],"special_destroyed_enemies":{},"special_dropped_boxes":{},"special_dropped_soul_pieces":[],"special_enemy_dropped_ids":[]}'%(json.loads(_level)['play_log_id'])})
 		self.log('doQuestFinishTut done')
 		self.getShopIndex()
 		self.log('getShopIndex done')
@@ -438,4 +460,15 @@ class API(object):
 if __name__ == "__main__":
 	a=API()
 	a.completeTut()
-	print (a.completeQuest(3,0,{"101":{"1":8}},[3001]))
+	print "getallquest= ", a.getAllQuests()
+	_quest_data = a.doMainQuest(1,a.getTeamid(),1)
+	print "main quest = ", _quest_data
+	_quest_finish_data=a.parseLevel(_quest_data,{"101":{"1":8}},[1001])
+	print "quest_finish_data = ", _quest_finish_data
+	_team=json.loads(_quest_data)['characters']
+	client_character_ids=[]
+	for c in _team:
+		client_character_ids.append(str(c['id']))
+	doFinishMainQuest = a.doFinishMainQuest(str(_quest_finish_data),','.join(client_character_ids))
+	print "doFinishMainQuest = ", doFinishMainQuest
+	#print a.completeQuest(1,a.getTeamid(),1,{"101":{"1":8}},[1001])

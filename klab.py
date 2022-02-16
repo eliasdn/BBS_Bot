@@ -1,5 +1,6 @@
 import requests
 import re
+import sys
 
 class Klab(object):
 	def __init__(self,user,pasw):
@@ -8,7 +9,7 @@ class Klab(object):
 		self.s=requests.session()
 		self.s.verify=False
 		self.token=None
-		self.s.headers.update({'Upgrade-Insecure-Requests':'1','User-Agent':'Mozilla/5.0 (Linux; Android 7.1.1; Nexus 9 Build/N9F27H) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.107 Safari/537.36'})
+		self.s.headers.update({'sec-ch-ua-platform':'"Windows"','Upgrade-Insecure-Requests':'1','User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'})
 		if 'win' in sys.platform:
 			self.s.proxies.update({'http': 'http://127.0.0.1:8888','https': 'https://127.0.0.1:8888',})
 		res=self.doLogin()

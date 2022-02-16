@@ -1,5 +1,5 @@
 import binascii
-from io import StringIO
+import StringIO
 
 class PKCS7Encoder(object):
     def __init__(self, k=16):
