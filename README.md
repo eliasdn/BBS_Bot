@@ -1,5 +1,6 @@
 # BBS_Bot
-This project is an bot for the mobile game Bleach Brave Souls.
+This project is a bot for the mobile game Bleach Brave Souls.
 The bot is written in python, it works with request like an API.
 
-We use Charles to read https request
+We use www.charlesproxy.com to read https request
+
